@@ -49,8 +49,10 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK + NDK 27
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages + NDK 27
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.1" "ndk;27.2.12479018"
 
@@ -69,8 +71,6 @@ jobs:
             nsh package . --target windows --out .nsh/out/windows
 
       - name: Build Android
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
           nsh package . --target android --out .nsh/out/android
