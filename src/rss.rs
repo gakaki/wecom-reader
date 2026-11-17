@@ -302,7 +302,17 @@ pub fn plain(html: &str) -> String {
     }
 
     for block_tag in [
-        "br", "br/", "br />", "/p", "/div", "/li", "/h1", "/h2", "/h3", "/blockquote", "/tr",
+        "br",
+        "br/",
+        "br />",
+        "/p",
+        "/div",
+        "/li",
+        "/h1",
+        "/h2",
+        "/h3",
+        "/blockquote",
+        "/tr",
     ] {
         let needle = format!("<{block_tag}");
         s = s.replace(&needle, "\n");

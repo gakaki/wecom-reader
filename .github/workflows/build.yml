@@ -1,0 +1,99 @@
+name: Build all platforms
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build macOS / iOS / Windows / Android / Web
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Zig 0.14.1
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Install nsh CLI 0.5.1
+        run: cargo install nsh-cli --version 0.5.1 --locked
+
+      # cargo-installed nsh does not auto-fetch the Android runtime component.
+      - name: Install NSH Android runtime
+        run: |
+          mkdir -p "$HOME/.cargo"
+          curl -fsSL -o /tmp/nsh-android.tar.gz \
+            https://github.com/longbridge/nsh/releases/download/v0.5.1/nsh-android.tar.gz
+          tar -xzf /tmp/nsh-android.tar.gz -C "$HOME/.cargo" --strip-components=1
+          test -f "$HOME/.cargo/runtime/android/release/classes.dex"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK + NDK 27
+        uses: android-actions/setup-android@v3
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.1" "ndk;27.2.12479018"
+
+      - name: Build macOS
+        run: nsh package . --target macos --out .nsh/out/macos
+
+      - name: Build iOS (unsigned simulator + device)
+        run: |
+          nsh package . --target ios-simulator --out .nsh/out/ios-simulator
+          IPHONEOS_DEPLOYMENT_TARGET=15.0 nsh package . --target ios --out .nsh/out/ios
+
+      - name: Build Windows (native host + llvm-lib shim)
+        run: |
+          PATH="$PWD/scripts:$PATH" \
+          AR_x86_64_pc_windows_msvc="$PWD/scripts/llvm-lib" \
+            nsh package . --target windows --out .nsh/out/windows
+
+      - name: Build Android
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
+          nsh package . --target android --out .nsh/out/android
+
+      - name: Build Web (WASM)
+        run: |
+          chmod +x scripts/zig-wasm-ar scripts/zig-wasm-cc
+          AR_wasm32_unknown_unknown="$PWD/scripts/zig-wasm-ar" \
+          CC_wasm32_unknown_unknown="$PWD/scripts/zig-wasm-cc" \
+            nsh package . --target web --out .nsh/out/web
+
+      - name: Package distributables
+        run: |
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent ".nsh/out/macos/WeCom Reader.app" release/WeCom-Reader-macOS.zip
+          cp ".nsh/out/windows/WeCom Reader.zip" release/WeCom-Reader-Windows.zip
+          cp ".nsh/out/android/WeCom Reader.apk" release/WeCom-Reader.apk
+          ditto -c -k --sequesterRsrc --keepParent ".nsh/out/ios/WeCom Reader.app" release/WeCom-Reader-iOS-unsigned.zip
+          ls -lh release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: true
+          files: release/*

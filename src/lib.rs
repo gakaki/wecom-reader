@@ -49,10 +49,9 @@ pub fn App() -> impl IntoElement {
     let busy = signal(false);
 
     refresh_all(v2ex_items, linux_items, status, updated_at, busy);
-    set_interval(
-        Duration::from_secs(REFRESH_SECONDS),
-        move || refresh_all(v2ex_items, linux_items, status, updated_at, busy),
-    );
+    set_interval(Duration::from_secs(REFRESH_SECONDS), move || {
+        refresh_all(v2ex_items, linux_items, status, updated_at, busy)
+    });
 
     let wide = move || window().width.0 >= 860.0;
     // Touch devices are always mobile; a narrow desktop window (or a phone
@@ -81,31 +80,37 @@ pub fn App() -> impl IntoElement {
         .text_color(rgb(TEXT))
         // Phones/tablets: stacked single-pane with a thumb-reachable tab bar.
         // Desktop: keep the familiar three-column layout.
-        .child(when(move || mobile(), move || {
-            mobile_shell(
-                active_source,
-                selected,
-                v2ex_items,
-                linux_items,
-                status,
-                updated_at,
-                busy,
-            )
-        }))
-        .child(when(move || !mobile(), move || {
-            desktop_shell(
-                active_source,
-                selected,
-                v2ex_items,
-                linux_items,
-                status,
-                updated_at,
-                busy,
-                wide,
-                show_list,
-                show_detail,
-            )
-        }))
+        .child(when(
+            move || mobile(),
+            move || {
+                mobile_shell(
+                    active_source,
+                    selected,
+                    v2ex_items,
+                    linux_items,
+                    status,
+                    updated_at,
+                    busy,
+                )
+            },
+        ))
+        .child(when(
+            move || !mobile(),
+            move || {
+                desktop_shell(
+                    active_source,
+                    selected,
+                    v2ex_items,
+                    linux_items,
+                    status,
+                    updated_at,
+                    busy,
+                    wide,
+                    show_list,
+                    show_detail,
+                )
+            },
+        ))
 }
 
 /// Desktop: narrow icon rail + list + detail, side by side.
@@ -126,10 +131,25 @@ fn desktop_shell(
         .flex_row()
         .p_safe_area()
         .child(rail(
-            source, selected, v2ex_items, linux_items, status, updated_at, busy, wide,
+            source,
+            selected,
+            v2ex_items,
+            linux_items,
+            status,
+            updated_at,
+            busy,
+            wide,
         ))
         .child(when(show_list, move || {
-            list_panel(v2ex_items, linux_items, source, selected, status, updated_at, busy)
+            list_panel(
+                v2ex_items,
+                linux_items,
+                source,
+                selected,
+                status,
+                updated_at,
+                busy,
+            )
         }))
         .child(when(show_detail, move || {
             detail_panel(selected, busy, wide)
@@ -153,27 +173,35 @@ fn mobile_shell(
         .flex_col()
         .pt_safe_area() // keep clear of the status bar / notch
         .child(
-            view().flex_1().flex_col().child(when(
-                move || selected.get().is_none(),
-                move || {
-                    mobile_list(
-                        v2ex_items, linux_items, source, selected, status, updated_at, busy,
-                    )
-                },
-            ))
-            .child(when(move || selected.get().is_some(), move || {
-                mobile_detail(selected)
-            })))
+            view()
+                .flex_1()
+                .flex_col()
+                .child(when(
+                    move || selected.get().is_none(),
+                    move || {
+                        mobile_list(
+                            v2ex_items,
+                            linux_items,
+                            source,
+                            selected,
+                            status,
+                            updated_at,
+                            busy,
+                        )
+                    },
+                ))
+                .child(when(
+                    move || selected.get().is_some(),
+                    move || mobile_detail(selected),
+                )),
+        )
         .child(mobile_tab_bar(source, selected))
 }
 
 /// The two sources as a bottom tab bar — the standard mobile navigation
 /// pattern, reachable with a thumb. Each target is at least 48pt tall and the
 /// bar pads for the home indicator.
-fn mobile_tab_bar(
-    source: Signal<Source>,
-    selected: Signal<Option<FeedItem>>,
-) -> impl IntoElement {
+fn mobile_tab_bar(source: Signal<Source>, selected: Signal<Option<FeedItem>>) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -304,13 +332,11 @@ fn mobile_list(
                         .child(text("↻").text_size(px(24.0)).text_color(rgb(BLUE))),
                 ),
         )
-        .child(
-            scroll()
-                .flex_1()
-                .child(each(items, |item| item.id.clone(), move |item, _| {
-                    feed_row(item, selected)
-                })),
-        )
+        .child(scroll().flex_1().child(each(
+            items,
+            |item| item.id.clone(),
+            move |item, _| feed_row(item, selected),
+        )))
 }
 
 /// Mobile detail: a pushed screen. A full-width Back row at the top and a
@@ -368,7 +394,11 @@ fn mobile_detail(selected: Signal<Option<FeedItem>>) -> impl IntoElement {
                         .flex_1()
                         .flex_col()
                         .gap_1()
-                        .child(text(title).text_size(px(17.0)).font_weight(FontWeight::BOLD))
+                        .child(
+                            text(title)
+                                .text_size(px(17.0))
+                                .font_weight(FontWeight::BOLD),
+                        )
                         .child(
                             text({
                                 if author.is_empty() {
@@ -383,22 +413,17 @@ fn mobile_detail(selected: Signal<Option<FeedItem>>) -> impl IntoElement {
                 ),
         )
         .child(
-            scroll()
-                .flex_1()
-                .child(
-                    view()
-                        .px_4()
-                        .py_4()
-                        .child(
-                            text(if content.is_empty() {
-                                "这条动态暂无正文，点击“打开原文”查看详情。".to_owned()
-                            } else {
-                                content
-                            })
-                            .text_size(px(16.0))
-                            .text_color(rgb(TEXT)),
-                        ),
+            scroll().flex_1().child(
+                view().px_4().py_4().child(
+                    text(if content.is_empty() {
+                        "这条动态暂无正文，点击“打开原文”查看详情。".to_owned()
+                    } else {
+                        content
+                    })
+                    .text_size(px(16.0))
+                    .text_color(rgb(TEXT)),
                 ),
+            ),
         )
         .child(when(
             move || has_link,
@@ -453,12 +478,12 @@ fn rail(
                 .justify_center()
                 .child(text("W").text_size(px(17.0)).text_color(rgb(PANEL))),
         )
-        .child(
-            rail_button("V", Source::V2ex, source, selected, || rgb(BLUE)),
-        )
-        .child(
-            rail_button("L", Source::LinuxDo, source, selected, || rgb(ACCENT)),
-        )
+        .child(rail_button("V", Source::V2ex, source, selected, || {
+            rgb(BLUE)
+        }))
+        .child(rail_button("L", Source::LinuxDo, source, selected, || {
+            rgb(ACCENT)
+        }))
         .child(view().flex_1())
         .child(
             view()
@@ -469,14 +494,8 @@ fn rail(
                 .justify_center()
                 .hover(|s| s.bg(rgb(RAIL_ACTIVE)))
                 .active(|s| s.opacity(0.7))
-                .on_press(move || {
-                    refresh_all(v2ex_items, linux_items, status, updated_at, busy)
-                })
-                .child(
-                    text("↻")
-                        .text_size(px(20.0))
-                        .text_color(rgb(0xB7BDC6)),
-                ),
+                .on_press(move || refresh_all(v2ex_items, linux_items, status, updated_at, busy))
+                .child(text("↻").text_size(px(20.0)).text_color(rgb(0xB7BDC6))),
         )
 }
 
@@ -495,7 +514,13 @@ fn rail_button(
         .rounded_lg()
         .items_center()
         .justify_center()
-        .bg(move || if is_active() { color() } else { rgb(RAIL_ACTIVE) })
+        .bg(move || {
+            if is_active() {
+                color()
+            } else {
+                rgb(RAIL_ACTIVE)
+            }
+        })
         .hover(|s| s.opacity(0.85))
         .active(|s| s.opacity(0.7))
         .on_press(move || {
@@ -587,13 +612,11 @@ fn list_panel(
                         .text_color(rgb(MUTED)),
                 ),
         )
-        .child(
-            scroll()
-                .flex_1()
-                .child(each(items, |item| item.id.clone(), move |item, _| {
-                    feed_row(item, selected)
-                })),
-        )
+        .child(scroll().flex_1().child(each(
+            items,
+            |item| item.id.clone(),
+            move |item, _| feed_row(item, selected),
+        )))
 }
 
 fn source_tab(
@@ -634,12 +657,7 @@ fn feed_row(item: ReadSignal<FeedItem>, selected: Signal<Option<FeedItem>>) -> i
     } else {
         rgb(ACCENT)
     };
-    let initial = current
-        .title
-        .chars()
-        .next()
-        .unwrap_or('?')
-        .to_string();
+    let initial = current.title.chars().next().unwrap_or('?').to_string();
     let title = current.title;
     let summary = current.summary;
     let date = current.date;
@@ -654,7 +672,13 @@ fn feed_row(item: ReadSignal<FeedItem>, selected: Signal<Option<FeedItem>>) -> i
         .px_4()
         .py(move || if touch() { px(14.0) } else { px(12.0) })
         .min_h(move || if touch() { px(64.0) } else { px(0.0) })
-        .bg(move || if is_selected() { rgb(SELECTED) } else { rgb(PANEL) })
+        .bg(move || {
+            if is_selected() {
+                rgb(SELECTED)
+            } else {
+                rgb(PANEL)
+            }
+        })
         .hover(|s| s.bg(rgb(HOVER)))
         .active(|s| s.opacity(0.8))
         .on_press(move || selected.set(Some(item.get())))
@@ -698,11 +722,8 @@ fn detail_panel(
     _busy: Signal<bool>,
     wide: impl Fn() -> bool + Copy + 'static,
 ) -> impl IntoElement {
-    view()
-        .flex_1()
-        .flex_col()
-        .bg(rgb(PAGE))
-        .child(when(
+    view().flex_1().flex_col().bg(rgb(PAGE)).child(
+        when(
             move || selected.get().is_some(),
             move || {
                 let item = selected.get().unwrap_or_else(|| FeedItem {
@@ -719,16 +740,13 @@ fn detail_panel(
             },
         )
         .otherwise(|| {
-            view()
-                .flex_1()
-                .items_center()
-                .justify_center()
-                .child(
-                    text("选择左侧的一条消息，查看正文详情")
-                        .text_size(px(15.0))
-                        .text_color(rgb(MUTED)),
-                )
-        }))
+            view().flex_1().items_center().justify_center().child(
+                text("选择左侧的一条消息，查看正文详情")
+                    .text_size(px(15.0))
+                    .text_color(rgb(MUTED)),
+            )
+        }),
+    )
 }
 
 fn detail_content(
@@ -761,20 +779,27 @@ fn detail_content(
                 .bg(rgb(PANEL))
                 .border_b(px(1.0))
                 .border_color(rgb(BORDER))
-                .child(when(move || !wide(), move || {
-                    view()
-                        .px_2()
-                        .py_1()
-                        .rounded(px(6.0))
-                        .hover(|s| s.bg(rgb(HOVER)))
-                        .on_press(move || selected.set(None))
-                        .child(text("‹ 返回").text_size(px(14.0)).text_color(rgb(BLUE)))
-                }))
+                .child(when(
+                    move || !wide(),
+                    move || {
+                        view()
+                            .px_2()
+                            .py_1()
+                            .rounded(px(6.0))
+                            .hover(|s| s.bg(rgb(HOVER)))
+                            .on_press(move || selected.set(None))
+                            .child(text("‹ 返回").text_size(px(14.0)).text_color(rgb(BLUE)))
+                    },
+                ))
                 .child(
                     view()
                         .flex_1()
                         .gap_1()
-                        .child(text(title).text_size(px(17.0)).font_weight(FontWeight::BOLD))
+                        .child(
+                            text(title)
+                                .text_size(px(17.0))
+                                .font_weight(FontWeight::BOLD),
+                        )
                         .child(
                             text(move || {
                                 if author.is_empty() {
@@ -803,22 +828,17 @@ fn detail_content(
                 })),
         )
         .child(
-            scroll()
-                .flex_1()
-                .child(
-                    view()
-                        .p_6()
-                        .max_w(px(760.0))
-                        .child(
-                            text(if content.is_empty() {
-                                "这条动态暂无正文，点击“打开原文”查看详情。".to_owned()
-                            } else {
-                                content
-                            })
-                            .text_size(px(15.0))
-                            .text_color(rgb(TEXT)),
-                        ),
+            scroll().flex_1().child(
+                view().p_6().max_w(px(760.0)).child(
+                    text(if content.is_empty() {
+                        "这条动态暂无正文，点击“打开原文”查看详情。".to_owned()
+                    } else {
+                        content
+                    })
+                    .text_size(px(15.0))
+                    .text_color(rgb(TEXT)),
                 ),
+            ),
         )
 }
 

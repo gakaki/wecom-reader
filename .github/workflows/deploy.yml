@@ -1,0 +1,66 @@
+name: Deploy Web to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'functions/**'
+      - 'scripts/**'
+      - 'nsh.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'wrangler.toml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build WASM and deploy
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Zig 0.14.1
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Install nsh CLI 0.5.1
+        run: cargo install nsh-cli --version 0.5.1 --locked
+
+      - name: Build Web (WASM)
+        run: |
+          chmod +x scripts/zig-wasm-ar scripts/zig-wasm-cc
+          AR_wasm32_unknown_unknown="$PWD/scripts/zig-wasm-ar" \
+          CC_wasm32_unknown_unknown="$PWD/scripts/zig-wasm-cc" \
+            nsh package . --target web --out .nsh/out/web
+
+      - name: Assemble dist-web
+        run: |
+          rm -rf dist-web && mkdir -p dist-web
+          cp -r ".nsh/out/web/WeCom Reader/." dist-web/
+          cp _headers dist-web/_headers
+          cp ".nsh/out/web/WeCom Reader/manifest.webmanifest" dist-web/manifest.webmanifest
+          python3 scripts/inject-download.py dist-web/index.html
+          rm -f dist-web/index.html.gz dist-web/index.html.br \
+                dist-web/manifest.webmanifest.gz dist-web/manifest.webmanifest.br
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist-web --project-name wecom-reader --branch main
