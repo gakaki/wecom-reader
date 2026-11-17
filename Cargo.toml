@@ -1,0 +1,33 @@
+[package]
+name = "wecom-reader"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+nsh-core = "0.5.1"
+nsh-base = "0.5.1"
+env_logger = "0.11"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nsh-platform-linux = { version = "0.5.1", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+nsh-platform-macos = { version = "0.5.1", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+nsh-platform-windows = { version = "0.5.1", default-features = false, features = ["shader", "editor", "emoji-picker", "highlight", "math", "plot", "rich-editor", "term"] }
+
+# GPUI Kit mode: the Rust root is embedded in a GPUI/GPUI Fast application
+# by src/bin/gpui.rs, instead of using the OS-native AppKit/Win32/GTK host.
+# GPUI Kit mode for macOS/Linux. Windows is excluded: gpui-fast-windows needs
+# fxc.exe (Windows SDK) to compile DirectX shaders at release time, which is
+# unavailable when cross-building from macOS. Windows packages use NSH's
+# native Win32 host (nsh-platform-windows) instead. The GPUI entry point
+# (src/bin/gpui.rs) is compiled only on macOS/Linux.
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+nsh-platform-gpui = "0.5.1"
+gpui = { package = "gpui-fast", version = "=0.1.13", default-features = false, features = ["font-kit", "wayland"] }
+gpui_platform = { package = "gpui-fast-platform", version = "=0.1.13", default-features = false, features = ["font-kit", "wayland", "x11", "runtime_shaders"] }

@@ -1,0 +1,25 @@
+{
+  "name": "WeCom Reader",
+  "id": "com.gakaki.linuxdo",
+  "version": "1.0.0",
+  "build": 1,
+  "rust": ".",
+  "root": "App",
+  "appearance": "light",
+  "window": {
+    "title": "WeCom Reader",
+    "defaultSize": { "width": 1180, "height": 760 },
+    "minSize": { "width": 720, "height": 480 }
+  },
+  "capabilities": {
+    "network": {
+      "hosts": [
+        "blog.v2ex.com",
+        "*.v2ex.com",
+        "linux.do",
+        "*.linux.do",
+        "linuxdorss.longpink.com"
+      ]
+    }
+  }
+}

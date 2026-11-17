@@ -1,0 +1,3 @@
+#!/bin/bash
+ZIG="${ZIG:-$(command -v zig || echo /Users/g/.local/bin/zig)}"
+exec "$ZIG" ar "$@"

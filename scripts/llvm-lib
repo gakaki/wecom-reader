@@ -1,0 +1,49 @@
+#!/bin/bash
+# Minimal llvm-lib shim for cargo-xwin on macOS without a standalone LLVM.
+# cc-rs calls: llvm-lib -out:<archive> -nologo <objects...>  (or /out:, /nologo)
+# It may call repeatedly to APPEND objects: the output archive is then also
+# passed as one of the input objects. We use Zig's LLVM `ar` MRI mode, which
+# supports ADDLIB so existing members are preserved.
+out=""
+objs=()
+for arg in "$@"; do
+  case "$arg" in
+    /out:*) out="${arg#/out:}" ;;
+    -out:*) out="${arg#-out:}" ;;
+    /nologo|-nologo|/NOLOGO|-NOLOGO|/machine:*|-machine:*|/MACHINE:*|-MACHINE:*) ;;
+    *) objs+=("$arg") ;;
+  esac
+done
+if [ -z "$out" ]; then
+  echo "llvm-lib shim: missing /out: or -out:" >&2
+  exit 1
+fi
+
+# Separate the output archive (passed as an input on append calls) from real objects.
+new_objs=()
+has_existing=0
+if [ -f "$out" ]; then
+  has_existing=1
+fi
+for obj in "${objs[@]}"; do
+  [ "$obj" = "$out" ] && continue
+  new_objs+=("$obj")
+done
+
+tmp="$out.tmp.$$"
+ZIG="${ZIG:-$(command -v zig || echo /Users/g/.local/bin/zig)}"
+{
+  echo "create $tmp"
+  [ "$has_existing" -eq 1 ] && echo "addlib $out"
+  for obj in "${new_objs[@]}"; do
+    echo "addmod \"$obj\""
+  done
+  echo "save"
+  echo "end"
+} | "$ZIG" ar -M 2>/dev/null
+rc=$?
+if [ "$rc" -ne 0 ] || [ ! -f "$tmp" ]; then
+  echo "llvm-lib shim: ar failed for $out" >&2
+  exit 1
+fi
+mv -f "$tmp" "$out"

@@ -1,0 +1,12 @@
+#!/bin/bash
+# cc-rs passes Clang's --target=wasm32-unknown-unknown; Zig uses its own
+# target query. Strip that flag and compile for freestanding WebAssembly.
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --target=*) ;;
+    *) args+=("$arg") ;;
+  esac
+done
+ZIG="${ZIG:-$(command -v zig || echo /Users/g/.local/bin/zig)}"
+exec "$ZIG" cc -target wasm32-freestanding "${args[@]}"

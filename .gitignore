@@ -1,0 +1,21 @@
+# Rust build
+/target/
+
+# nsh build outputs and local state (large binaries)
+/.nsh/
+/.wrangler/
+
+# Node / wrangler
+/node_modules/
+
+# Generated web bundle (rebuild with the command in README)
+/dist-web/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
